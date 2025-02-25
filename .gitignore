@@ -6,8 +6,8 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
 .venv
-
+.vscode
 .history
 .env
+cookies*.json

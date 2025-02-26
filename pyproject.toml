@@ -10,3 +10,8 @@ dependencies = [
     "openai>=1.64.0",
     "pillow>=11.1.0",
 ]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.9.7",
+]

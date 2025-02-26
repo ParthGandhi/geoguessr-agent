@@ -5,7 +5,6 @@ from browser_use import (
     ActionResult,
     Agent,
     Browser,
-    BrowserConfig,
     BrowserContextConfig,
     Controller,
 )
@@ -27,11 +26,10 @@ controller = Controller()
 
 
 @controller.action("Take a screenshot of the current page")
-async def take_screenshot(browser: Browser) -> ActionResult:
-    print(f"Taking screenshot")
-    playwright = browser.get_playwright_browser()
-    page = playwright.pages[0]
-    await page.screenshot(path="screenshot.png", full_page=True)
+async def take_screenshot(browser: BrowserContext) -> ActionResult:
+    print("Taking screenshot")
+    screenshot_base64 = await browser.take_screenshot()
+    print("Took screenshot!")
     return ActionResult(is_done=True, success=True)
 
 
@@ -55,7 +53,7 @@ async def main():
     game_url = "https://www.geoguessr.com/game/Jf3PT4rBb4oVxjdp"
     agent = Agent(
         task=f"""
-        Your task is to explore a Google maps live location and take 3 screenshots of various scenery and interesting objects.
+        Your task is to explore a Google maps live location and take 1 screenshots of various scenery and interesting objects.
 
         Steps:
         Load the Geoguessr game {game_url}.
@@ -66,7 +64,6 @@ async def main():
         controller=controller,
     )
     result = await agent.run()
-    await browser.close()
     print(result)
 
 

@@ -12,8 +12,14 @@ from browser_use import (
 from browser_use.browser.context import BrowserContext
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from lmnr import Laminar
 
 load_dotenv()
+
+# https://docs.browser-use.com/development/telemetry#opting-out
+os.environ["ANONYMIZED_TELEMETRY"] = "false"
+
+Laminar.initialize()
 
 llm = ChatOpenAI(model="gpt-4o")
 

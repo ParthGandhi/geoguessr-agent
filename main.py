@@ -1,5 +1,6 @@
 import base64
 import json
+import math
 import os
 import time
 from io import BytesIO
@@ -9,35 +10,65 @@ from dotenv import load_dotenv
 from PIL import Image
 from playwright.sync_api import Page, sync_playwright
 
+import vlm
+
 load_dotenv()
 
-all_screenshots: List[str] = []
 
-
-def take_screenshot(page: Page) -> None:
+def take_screenshot(page: Page) -> str:
     print("Taking screenshot")
     screenshot_bytes = page.screenshot(type="jpeg", quality=80)
     screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
-    print("Screenshot taken")
-    all_screenshots.append(screenshot_base64)
+    return screenshot_base64
 
 
 def pan_right(page: Page) -> None:
     print("Panning right")
-    page.keyboard.down("A")
-    time.sleep(0.5)
-    take_screenshot(page)
-    page.keyboard.up("A")
+    page.keyboard.down("D")
+    time.sleep(1)
+    page.keyboard.up("D")
 
 
-def zoom_in(page: Page, x: int, y: int) -> None:
-    print(f"Zooming in to {x}, {y}")
-    page.mouse.move(x, y)
-    page.mouse.wheel(0, -500)  # Zoom in
+def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
+    print(f"Zooming in to see object {obj['name']} at {obj['x']}, {obj['y']}")
+    page.mouse.move(obj["x"], obj["y"])
+
+    page.mouse.wheel(0, -700)
     time.sleep(1)
-    take_screenshot(page)
-    page.mouse.wheel(0, 500)  # Zoom back out
+
+    screenshot = take_screenshot(page)
+
+    page.mouse.wheel(0, 700)
     time.sleep(1)
+    return screenshot
+
+
+def deduplicate_interesting_objects(
+    objects: List[vlm.InterestingObject],
+) -> List[vlm.InterestingObject]:
+    """Filter out objects that are within 200px of each other, keeping only the first occurrence.
+
+    Args:
+        objects: List of interesting objects with x,y coordinates
+
+    Returns:
+        Filtered list with duplicates removed based on 200px proximity
+    """
+    result: List[vlm.InterestingObject] = []
+    for obj in objects:
+        # Check if this object is too close to any already kept object
+        is_duplicate = False
+        for kept_obj in result:
+            distance = math.dist((obj["x"], obj["y"]), (kept_obj["x"], kept_obj["y"]))
+            if distance < 250:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            result.append(obj)
+
+    print(f"Deduplicated {len(objects)} objects to {len(result)}")
+    return result
 
 
 def _get_cookies_file() -> str:
@@ -65,21 +96,23 @@ def show_base64_images(images: List[str]) -> None:
         img.show()
 
 
-def explore_location(page: Page) -> None:
+def explore_location(page: Page) -> List[str]:
     """Simulates the exploration pattern previously handled by the Agent"""
-    # Take initial screenshot
-    take_screenshot(page)
 
+    screenshots = []
     for _ in range(4):
         pan_right(page)
-        take_screenshot(page)
+        full_screenshot = take_screenshot(page)
+        screenshots.append(full_screenshot)
 
-        # # Simulate zooming in at center of viewport
-        # viewport_size = page.viewport_size
-        # if viewport_size:
-        #     center_x = viewport_size["width"] // 2
-        #     center_y = viewport_size["height"] // 2
-        #     zoom_in(page, center_x, center_y)
+        interesting_objects = vlm.identify_objects(full_screenshot)
+        interesting_objects = deduplicate_interesting_objects(interesting_objects)
+
+        for obj in interesting_objects:
+            zoomed_screenshot = zoom_in_screenshot(page, obj)
+            screenshots.append(zoomed_screenshot)
+
+    return screenshots
 
 
 def main():
@@ -111,8 +144,7 @@ def main():
         page.keyboard.press("r")
         time.sleep(1)
 
-        explore_location(page)
-
+        all_screenshots = explore_location(page)
         show_base64_images(all_screenshots)
 
         browser.close()

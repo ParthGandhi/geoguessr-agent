@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from lmnr import Laminar
 from PIL import Image
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -23,7 +24,7 @@ os.environ["ANONYMIZED_TELEMETRY"] = "false"
 
 Laminar.initialize()
 
-llm = ChatOpenAI(model="gpt-4o-mini")
+llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
 
 controller = Controller()
 
@@ -39,8 +40,8 @@ async def take_screenshot(browser: BrowserContext):
 
 def _return_completed_action():
     return ActionResult(
-        is_done=len(all_screenshots) == 2,
-        success=len(all_screenshots) == 2,
+        is_done=len(all_screenshots) == 8,
+        success=len(all_screenshots) == 8,
     )
 
 
@@ -48,10 +49,28 @@ def _return_completed_action():
 async def pan_right(browser: BrowserContext):
     print("Panning right")
     page = await browser.get_current_page()
-    await page.keyboard.down("D")
+    await page.keyboard.down("A")
     await asyncio.sleep(0.5)
     await take_screenshot(browser)
-    await page.keyboard.up("D")
+    await page.keyboard.up("A")
+    return _return_completed_action()
+
+
+class ZoomInParams(BaseModel):
+    x: int = Field(description="The x coordinate of the object to zoom in on")
+    y: int = Field(description="The y coordinate of the object to zoom in on")
+
+
+@controller.action("Zoom in", param_model=ZoomInParams)
+async def zoom_in(params: ZoomInParams, browser: BrowserContext):
+    print(f"Zooming in to {params.x}, {params.y}")
+    page = await browser.get_current_page()
+    await page.mouse.move(params.x, params.y)
+    await page.mouse.wheel(0, -500)
+    await asyncio.sleep(1)
+    await take_screenshot(browser)
+    await page.mouse.wheel(0, 500)
+    await asyncio.sleep(1)
     return _return_completed_action()
 
 
@@ -85,7 +104,7 @@ async def main():
     browser = Browser()
     browser_context = BrowserContext(browser=browser, config=browser_context_config)
 
-    game_url = "https://www.geoguessr.com/game/Jf3PT4rBb4oVxjdp"
+    game_url = "https://www.geoguessr.com/game/lgabJXZkbXKNKsqM"
 
     initial_actions = [
         {
@@ -112,11 +131,20 @@ async def main():
     ]
     agent = Agent(
         task="""
-Your task is to explore a Google maps live location
+Your task is to explore this Google map street-view location.
 
-How to explore:
-Pan right to see a different part of the scene.
-        """,
+
+Repeat these steps in a loop:
+1. `pan_right` to see a different part of the scene.
+2. If you see an an object that can help identify the location, point at the object with the mouse and run the `zoom_in` action.
+    Objects that can be used to identify the location include are:
+    - Any kind of writing on sign boards, vehicles, buildings, road signs, sign posts etc
+    - Flags
+    - Vehicles (brands, models, etc)
+    - Distinctive buildings
+    - Other landmarks
+3. Continue the loop
+""",
         llm=llm,
         browser_context=browser_context,
         controller=controller,

@@ -8,4 +8,5 @@ dependencies = [
     "browser-use>=0.1.40",
     "lmnr[all]>=0.4.62",
     "openai>=1.64.0",
+    "pillow>=11.1.0",
 ]

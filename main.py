@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import os
+from io import BytesIO
 
 from browser_use import (
     ActionResult,
@@ -12,6 +14,7 @@ from browser_use.browser.context import BrowserContext
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from lmnr import Laminar
+from PIL import Image
 
 load_dotenv()
 
@@ -24,13 +27,19 @@ llm = ChatOpenAI(model="gpt-4o")
 
 controller = Controller()
 
+all_screenshots = []
+
 
 @controller.action("Take a screenshot of the current page")
-async def take_screenshot(browser: BrowserContext) -> ActionResult:
+async def take_screenshot(browser: BrowserContext):
     print("Taking screenshot")
     screenshot_base64 = await browser.take_screenshot()
-    print("Took screenshot!")
-    return ActionResult(is_done=True, success=True)
+    print("Screenshot taken")
+    all_screenshots.append(screenshot_base64)
+    return ActionResult(
+        is_done=True,
+        success=True,
+    )
 
 
 def _get_cookies_file():
@@ -38,6 +47,19 @@ def _get_cookies_file():
     if not os.path.exists(cookies_path):
         raise FileNotFoundError(f"Cookies file not found at {cookies_path}")
     return cookies_path
+
+
+def show_base64_images(images: list[str]) -> None:
+    """Opens and displays base64 encoded images using PIL.
+
+    Args:
+        images: List of base64 encoded image strings
+    """
+    print(f"Showing {len(images)} images")
+    for img_str in images:
+        img_data = base64.b64decode(img_str)
+        img = Image.open(BytesIO(img_data))
+        img.show()
 
 
 async def main():
@@ -53,7 +75,9 @@ async def main():
     game_url = "https://www.geoguessr.com/game/Jf3PT4rBb4oVxjdp"
     agent = Agent(
         task=f"""
-        Your task is to explore a Google maps live location and take 1 screenshots of various scenery and interesting objects.
+        Your task is to explore a Google maps live location and take 2 screenshots of various scenery and interesting objects.
+
+        You take a screenshot by calling the `take_screenshot` action.
 
         Steps:
         Load the Geoguessr game {game_url}.
@@ -65,6 +89,7 @@ async def main():
     )
     result = await agent.run()
     print(result)
+    show_base64_images(all_screenshots)
 
 
 if __name__ == "__main__":

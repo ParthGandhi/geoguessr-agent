@@ -23,36 +23,36 @@ os.environ["ANONYMIZED_TELEMETRY"] = "false"
 
 Laminar.initialize()
 
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(model="gpt-4o-mini")
 
 controller = Controller()
 
 all_screenshots = []
 
 
-@controller.action("Take a screenshot of the current page")
 async def take_screenshot(browser: BrowserContext):
     print("Taking screenshot")
     screenshot_base64 = await browser.take_screenshot()
     print("Screenshot taken")
     all_screenshots.append(screenshot_base64)
+
+
+def _return_completed_action():
     return ActionResult(
-        is_done=len(all_screenshots) == 3,
-        success=len(all_screenshots) == 3,
+        is_done=len(all_screenshots) == 2,
+        success=len(all_screenshots) == 2,
     )
 
 
 @controller.action("Pan right")
 async def pan_right(browser: BrowserContext):
     print("Panning right")
-    await _pan(browser, "D")
-
-
-async def _pan(browser: BrowserContext, direction: str):
     page = await browser.get_current_page()
-    await page.keyboard.down(direction)
-    await asyncio.sleep(1)
-    await page.keyboard.up(direction)
+    await page.keyboard.down("D")
+    await asyncio.sleep(0.5)
+    await take_screenshot(browser)
+    await page.keyboard.up("D")
+    return _return_completed_action()
 
 
 def _get_cookies_file():
@@ -86,24 +86,41 @@ async def main():
     browser_context = BrowserContext(browser=browser, config=browser_context_config)
 
     game_url = "https://www.geoguessr.com/game/Jf3PT4rBb4oVxjdp"
+
+    initial_actions = [
+        {
+            "open_tab": {"url": game_url},
+        },
+        {
+            "click_element": {"index": 0},
+        },
+        {
+            "wait": {
+                "seconds": 1,
+            }
+        },
+        {
+            "send_keys": {
+                "keys": "r",
+            },
+        },
+        {
+            "wait": {
+                "seconds": 1,
+            }
+        },
+    ]
     agent = Agent(
-        task=f"""
-        Your task is to explore a Google maps live location and take 3 screenshots of various scenery and interesting objects.
+        task="""
+Your task is to explore a Google maps live location
 
-        You take a screenshot by calling the `take_screenshot` action.
-
-        How to explore:
-        See a different part of the scene using the `pan_right` action.
-
-        Steps:
-        1. Load the Geoguessr game {game_url}.
-        2. Click on the map to enable the map controls.
-        3. Explore the map
-        4. Take screenshots of various scenery and interesting objects.
+How to explore:
+Pan right to see a different part of the scene.
         """,
         llm=llm,
         browser_context=browser_context,
         controller=controller,
+        initial_actions=initial_actions,
     )
     result = await agent.run()
     print(result)

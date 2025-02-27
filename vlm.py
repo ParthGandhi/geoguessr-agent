@@ -105,7 +105,89 @@ Please proceed with your analysis and provide the final output."""
     return json.loads(response.choices[0].message.content)["objects"]  # type: ignore
 
 
-def identify_location(images_base64: list[str]) -> IdentifiedLocation:
+def identify_location_o1(images_base64: list[str]) -> IdentifiedLocation:
+    if len(images_base64) < 3:
+        raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
+
+    prompt = """You are an expert image analyst specializing in geographical location identification.
+Your task is to analyze images from the game GeoGuessr and determine the most likely location where they were taken.
+
+Carefully examine the image, paying close attention to the following elements:
+   a) Landscape and scenery
+   b) Types of plants and animals
+   c) Architecture and building styles
+   d) Vehicles, transportation methods, and which side of the road they are on
+   e) Road signs, street names, and other written information
+   f) Cultural indicators (clothing, flags, monuments)
+   g) Climate and weather conditions
+Determine the most likely location where the image was taken based on the information you can confidently infer from the image.
+"""
+
+    response = client.chat.completions.create(
+        model="o1-2024-12-17",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                    }
+                    for image_base64 in images_base64
+                ],
+            },
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "latitude_longitude",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "explanation": {
+                            "type": "string",
+                            "description": "A detailed analysis of the images and the facts from there leading to the final answer",
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": "The country name",
+                        },
+                        "region": {"type": "string", "description": "The region name"},
+                        "latitude": {
+                            "type": "number",
+                            "description": "The latitude coordinate, which represents the north-south position on the Earth's surface.",
+                        },
+                        "longitude": {
+                            "type": "number",
+                            "description": "The longitude coordinate, which represents the east-west position on the Earth's surface.",
+                        },
+                    },
+                    "required": [
+                        "explanation",
+                        "country",
+                        "region",
+                        "latitude",
+                        "longitude",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        },
+    )
+    return json.loads(response.choices[0].message.content)  # type: ignore
+
+
+def identify_location_gpt4o(images_base64: list[str]) -> IdentifiedLocation:
     if len(images_base64) < 3:
         raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
 
@@ -128,7 +210,7 @@ Instructions:
 Remember to base your analysis and conclusions solely on the information provided in the image."""
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-2024-08-06"
         messages=[
             {
                 "role": "system",

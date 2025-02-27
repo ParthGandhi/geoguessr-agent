@@ -41,7 +41,7 @@ def main():
             all_screenshots = explore_location(page)
             output.save_base64_images(all_screenshots, game_token, round_number)
 
-            identified_location = vlm.identify_location(all_screenshots)
+            identified_location = vlm.identify_location_gpt4o(all_screenshots)
 
             player = geoguessr.submit_guess(
                 page,

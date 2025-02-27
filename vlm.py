@@ -89,7 +89,7 @@ def identify_location(images_base64: list[str]) -> IdentifiedLocation:
     if len(images_base64) < 3:
         raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
 
-    prompt = """You will be given images from the game GeoGuessr. Your task is to analyze these images and determine the most likely location where they were taken. Use all available information to make your best guess.
+    prompt = """You will be given images from the game GeoGuessr. Your task is to analyze these images and determine the most likely location where they were taken.
 
 Carefully analyze each image, paying close attention to the following elements:
 1. Landscape and scenery
@@ -103,7 +103,7 @@ Carefully analyze each image, paying close attention to the following elements:
 Remember to base your analysis solely on the information provided in the images."""
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="o1",
         messages=[
             {
                 "role": "system",
@@ -162,6 +162,6 @@ Remember to base your analysis solely on the information provided in the images.
                 },
             },
         },
-        temperature=0.30,
+        # temperature=0.30,
     )
     return json.loads(response.choices[0].message.content)  # type: ignore

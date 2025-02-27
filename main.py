@@ -3,6 +3,7 @@ import json
 import math
 import os
 import time
+import uuid
 from io import BytesIO
 from typing import List
 
@@ -83,17 +84,22 @@ def load_cookies() -> List[dict]:
         return json.load(f)
 
 
-def show_base64_images(images: List[str]) -> None:
-    """Opens and displays base64 encoded images using PIL.
+def save_base64_images(images: List[str]) -> None:
+    """Saves base64 encoded images using PIL.
 
     Args:
         images: List of base64 encoded image strings
     """
-    print(f"Showing {len(images)} images")
-    for img_str in images:
+    folder_name = str(uuid.uuid4())
+    output_path = os.path.join("data", folder_name)
+    os.makedirs(output_path, exist_ok=True)
+
+    print(f"Saving {len(images)} images to {output_path}")
+    for i, img_str in enumerate(images):
         img_data = base64.b64decode(img_str)
         img = Image.open(BytesIO(img_data))
-        img.show()
+        img_path = os.path.join(output_path, f"image_{i}.png")
+        img.save(img_path)
 
 
 def explore_location(page: Page) -> List[str]:
@@ -116,7 +122,7 @@ def explore_location(page: Page) -> List[str]:
 
 
 def main():
-    game_url = "https://www.geoguessr.com/game/lgabJXZkbXKNKsqM"  # Original URL
+    game_url = "https://www.geoguessr.com/game/lgabJXZkbXKNKsqM"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -145,7 +151,7 @@ def main():
         time.sleep(1)
 
         all_screenshots = explore_location(page)
-        show_base64_images(all_screenshots)
+        save_base64_images(all_screenshots)
 
         browser.close()
 

@@ -23,6 +23,24 @@ class IdentifiedLocation(TypedDict):
 
 
 def identify_objects(image_base64: str) -> list[InterestingObject]:
+    prompt = """You are an assistant designed to analyze screenshots from the game Geoguessr, which uses Google Maps imagery. Your task is to identify unique or interesting objects in these images that could help determine the location where the screenshot was taken.
+
+Please follow these steps to analyze the image:
+
+1. Carefully examine the 1024x1024 pixel image for any unique or interesting objects.
+2. Focus on identifying the following types of objects:
+   - Text on signs, vehicles, buildings, road signs, or sign posts
+   - Flags
+   - Famous buildings or landmarks
+   - Other distinctive and unique objects.
+3. Determine if there are 0, 1, or 2 such objects in the image. If there are more than 2, select the 2 most distinctive or informative objects.
+4. For each identified object (up to 2):
+   a. Provide a brief description of the object.
+   b. Determine its approximate coordinates, measured from the top-left corner of the image.
+5. Format your findings according to the output structure provided below.
+6. If no unique or interesting objects are found, return an empty list.
+
+Please proceed with your analysis and provide the final output."""
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -31,7 +49,7 @@ def identify_objects(image_base64: str) -> list[InterestingObject]:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You will help identify any interesting or unique objects in this image that might help identify it's location.\n\nThe image is 1024x1024 large.\n\nExamples:\n - Any kind of writing on sign boards, vehicles, buildings, road signs, sign posts etc\n - Flags\n- Famous buildings and landmarks\n\nThere can be  0-2 objects in the image.\nThe approximate coordinates should be measured from the top-left of the image.\nReturn an empty list if there are no such objects.",
+                        "text": prompt,
                     }
                 ],
             },
@@ -164,7 +182,7 @@ Remember to base your analysis solely on the information provided in the images.
                 },
             },
         },
-        # temperature=0.30,
+        temperature=0.30,
     )
     return json.loads(response.choices[0].message.content)  # type: ignore
 
@@ -176,6 +194,9 @@ def deduplicate_interesting_objects(
     Sometimes the object detection returns multiple items for the same object or objects very close to each other.
     In either case, we need to only zoom in once to see what we need.
     """
+    if not objects:
+        return objects
+
     picked_objects: List[InterestingObject] = []
     for obj in objects:
         # Check if this object is too close to any already kept object

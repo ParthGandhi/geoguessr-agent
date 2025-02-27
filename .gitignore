@@ -13,3 +13,5 @@ wheels/
 cookies*.json
 
 data/
+
+.DS_Store

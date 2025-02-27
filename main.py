@@ -34,7 +34,7 @@ def main():
         page.goto(f"https://www.geoguessr.com/game/{game_token}")
 
         # each game has 5 rounds
-        for round_number in range(1, 2):
+        for round_number in range(1, 3):
             print(f"\nStarting round {round_number}")
             browser_ops.start_round(page)
 

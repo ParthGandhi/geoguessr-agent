@@ -25,17 +25,27 @@ def pan_right(page: Page) -> None:
 def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
     """
     Zooms in on an object, takes a screenshot, and zooms out back to the original view.
+
+    Geoguessr doesn't like a large zoom all at once, so we zoom in in smaller increments.
     """
     print(f"Zooming in to see object {obj['name']} at {obj['x']}, {obj['y']}")
     page.mouse.move(obj["x"], obj["y"])
 
-    page.mouse.wheel(0, -1000)
-    page.wait_for_timeout(1000)
+    zoom_amount = 200
+    zoom_steps = 3
+
+    # Zoom in with multiple smaller increments
+    for _ in range(zoom_steps):
+        page.mouse.wheel(0, -zoom_amount)
+        page.wait_for_timeout(200)
 
     screenshot = take_screenshot(page)
 
-    page.mouse.wheel(0, 1000)
-    page.wait_for_timeout(1000)
+    # Zoom out with matching increments
+    for _ in range(zoom_steps):
+        page.mouse.wheel(0, zoom_amount)
+        page.wait_for_timeout(200)
+
     return screenshot
 
 

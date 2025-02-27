@@ -109,18 +109,23 @@ def identify_location(images_base64: list[str]) -> IdentifiedLocation:
     if len(images_base64) < 3:
         raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
 
-    prompt = """You will be given images from the game GeoGuessr. Your task is to analyze these images and determine the most likely location where they were taken.
+    prompt = """You are an expert image analyst specializing in geographical location identification. Your task is to analyze images from the game GeoGuessr and determine the most likely location where they were taken. Your analysis should be based solely on the visual information provided in the image.
 
-Carefully analyze each image, paying close attention to the following elements:
-1. Landscape and scenery
-2. Types of plants and animals
-3. Architecture and building styles
-4. Vehicles, transportation methods, and which side of the road they are on
-5. Road signs, street names, and other written information
-6. Cultural indicators (clothing, flags, monuments)
-7. Climate and weather conditions
+Instructions:
+1. Carefully examine the image, paying close attention to the following elements:
+   a) Landscape and scenery
+   b) Types of plants and animals
+   c) Architecture and building styles
+   d) Vehicles, transportation methods, and which side of the road they are on
+   e) Road signs, street names, and other written information
+   f) Cultural indicators (clothing, flags, monuments)
+   g) Climate and weather conditions
+2. In your observation analysis, list out each observed element and its potential geographic implication.
+3. After your analysis, summarize the most distinctive features that contribute to identifying the location.
+4. Determine the most likely location where the image was taken. This could be a specific country, region, or city, depending on how much detail you can confidently infer from the image.
+5. Provide a detailed explanation of your reasoning, referring back to the specific elements you observed in the image.
 
-Remember to base your analysis solely on the information provided in the images."""
+Remember to base your analysis and conclusions solely on the information provided in the image."""
 
     response = client.chat.completions.create(
         model="gpt-4o",

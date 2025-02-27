@@ -27,8 +27,6 @@ class Guess:
     roundScoreInPoints: int
     distance: Distance
     distanceInMeters: float
-    stepsCount: int
-    time: int
 
 
 @dataclass
@@ -36,12 +34,7 @@ class Player:
     totalScore: Score
     totalDistance: Distance
     totalDistanceInMeters: float
-    totalStepsCount: int
-    totalTime: int
     guesses: List[Guess]
-    id: str
-
-
 
 
 def _parse_game_state(response_text: str) -> Player:
@@ -57,8 +50,6 @@ def _parse_game_state(response_text: str) -> Player:
         totalScore=Score(**player_data["totalScore"]),
         totalDistance=Distance(**player_data["totalDistance"]),
         totalDistanceInMeters=player_data["totalDistanceInMeters"],
-        totalStepsCount=player_data["totalStepsCount"],
-        totalTime=player_data["totalTime"],
         guesses=[
             Guess(
                 lat=g["lat"],
@@ -68,18 +59,15 @@ def _parse_game_state(response_text: str) -> Player:
                 roundScoreInPoints=g["roundScoreInPoints"],
                 distance=Distance(**g["distance"]),
                 distanceInMeters=g["distanceInMeters"],
-                stepsCount=g["stepsCount"],
-                time=g["time"],
             )
             for g in player_data["guesses"]
         ],
-        id=player_data["id"],
     )
     return player
 
 
 def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
-    print(f"Submitting guess at coordinates: {lat}, {lng}")
+    print(f"Submitting guess for {game_token=} at {lat=}, {lng=}")
 
     api_context = page.request
     data = {
@@ -96,15 +84,11 @@ def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
     )
 
     if not response.ok:
-        print(
-            f"Failed to submit guess. Status: {response.status}, Response: {response.text()}"
+        raise Exception(
+            f"Failed to get game state. Status: {response.status}, Response: {response.text()}"
         )
-        raise Exception("Failed to submit guess")
 
     player = _parse_game_state(response.text())
-    print(
-        f"Successfully submitted guess. Score: {player.totalScore.amount} {player.totalScore.unit}"
-    )
     return player
 
 
@@ -114,10 +98,9 @@ def get_game_state(page: Page, game_token: str) -> Player:
         f"https://www.geoguessr.com/api/v3/games/{game_token}",
     )
     if not response.ok:
-        print(
+        raise Exception(
             f"Failed to get game state. Status: {response.status}, Response: {response.text()}"
         )
-        raise Exception("Failed to get game state")
 
     player = _parse_game_state(response.text())
     return player
@@ -142,12 +125,10 @@ def start_new_game(page: Page) -> str:
     )
 
     if not response.ok:
-        print(
+        raise Exception(
             f"Failed to start game. Status: {response.status}, Response: {response.text()}"
         )
-        raise Exception("Failed to start game")
 
-    game_data = json.loads(response.text())
-    game_token = game_data["token"]
-    print(f"Started new game with token: {game_token}")
+    game_token = response.json()["token"]
+    print(f"Started new game with {game_token=}")
     return game_token

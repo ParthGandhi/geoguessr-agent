@@ -31,15 +31,18 @@ def pan_right(page: Page) -> None:
 
 
 def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
+    """
+    Zooms in on an object, takes a screenshot, and zooms out back to the original view.
+    """
     print(f"Zooming in to see object {obj['name']} at {obj['x']}, {obj['y']}")
     page.mouse.move(obj["x"], obj["y"])
 
-    page.mouse.wheel(0, -700)
+    page.mouse.wheel(0, -1000)
     time.sleep(1)
 
     screenshot = take_screenshot(page)
 
-    page.mouse.wheel(0, 700)
+    page.mouse.wheel(0, 1000)
     time.sleep(1)
     return screenshot
 
@@ -47,29 +50,27 @@ def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
 def deduplicate_interesting_objects(
     objects: List[vlm.InterestingObject],
 ) -> List[vlm.InterestingObject]:
-    """Filter out objects that are within 200px of each other, keeping only the first occurrence.
-
-    Args:
-        objects: List of interesting objects with x,y coordinates
-
-    Returns:
-        Filtered list with duplicates removed based on 200px proximity
     """
-    result: List[vlm.InterestingObject] = []
+    Sometimes the object detection returns multiple items for the same object or objects very close to each other.
+    In either case, we need to only zoom in once to see what we need.
+    """
+    picked_objects: List[vlm.InterestingObject] = []
     for obj in objects:
         # Check if this object is too close to any already kept object
         is_duplicate = False
-        for kept_obj in result:
-            distance = math.dist((obj["x"], obj["y"]), (kept_obj["x"], kept_obj["y"]))
+        for picked_obj in picked_objects:
+            distance = math.dist(
+                (obj["x"], obj["y"]), (picked_obj["x"], picked_obj["y"])
+            )
             if distance < 250:
                 is_duplicate = True
                 break
 
         if not is_duplicate:
-            result.append(obj)
+            picked_objects.append(obj)
 
-    print(f"Deduplicated {len(objects)} objects to {len(result)}")
-    return result
+    print(f"Deduplicated {len(objects)} objects to {len(picked_objects)}")
+    return picked_objects
 
 
 def _get_cookies_file() -> str:
@@ -85,16 +86,11 @@ def load_cookies() -> List[dict]:
 
 
 def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:
-    """Saves base64 encoded images using PIL.
-
-    Args:
-        images: List of base64 encoded image strings
-        game_token: Current game token
-        round_number: Current round number
+    """
+    Saves all the images to the data directory for this game and round.
     """
     output_path = os.path.join("data", game_token, str(round_number))
     os.makedirs(output_path, exist_ok=True)
-
     print(f"Saving {len(images)} images to {output_path}")
     for i, img_str in enumerate(images):
         img_data = base64.b64decode(img_str)
@@ -104,10 +100,8 @@ def save_base64_images(images: List[str], game_token: str, round_number: int) ->
 
 
 def explore_location(page: Page) -> List[str]:
-    """Simulates the exploration pattern previously handled by the Agent"""
-
     screenshots = []
-    for _ in range(4):
+    for _ in range(5):
         pan_right(page)
         full_screenshot = take_screenshot(page)
         screenshots.append(full_screenshot)
@@ -131,8 +125,8 @@ def _print_final_score(page: Page, game_token: str) -> None:
 
     # Find best and worst guesses
     distances = [g.distanceInMeters for g in game_state.guesses]
-    best_distance = min(distances) / 1000  # Convert to km
-    worst_distance = max(distances) / 1000  # Convert to km
+    best_distance = min(distances) / 1000
+    worst_distance = max(distances) / 1000
 
     print("\n=== Final Results ===")
     print(f"Total Score: {total_score}, ({total_percentage:.1f}%)")
@@ -141,11 +135,20 @@ def _print_final_score(page: Page, game_token: str) -> None:
     print(f"Worst Guess: {worst_distance:.1f} km")
     print("==================\n")
 
-def _print_round_score(player: geoguessr.Player, round_number: int) -> None:
+
+def _print_round_score(
+    player: geoguessr.Player,
+    round_number: int,
+    identified_location: vlm.IdentifiedLocation,
+) -> None:
     guess = player.guesses[round_number - 1]
     distance_km = float(guess.distance.meters["amount"])
     print("\n=== Round Results ===")
     print(f"Round {round_number}")
+    print(
+        f"Guessed: {identified_location['latitude']:.4f}, {identified_location['longitude']:.4f}"
+    )
+    print(f"Explanation: {identified_location['explanation']}")
     print(f"Score: {guess.roundScoreInPoints}, ({guess.roundScoreInPercentage:.1f}%)")
     print(f"Distance: {distance_km:.1f} km")
     print("==================\n")
@@ -174,10 +177,10 @@ def main():
             print(f"\nStarting round {round_number}")
             page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
 
-            # Wait for and click the first element (game start)
+            # The keyboard controls aren't activated till the first mouse click.
+            # So click somewhere randomly on the page (which may move the map around), then go back to the starting point.
             page.mouse.click(512, 512)
             time.sleep(1)
-
             # Press 'r' to reset to the starting point
             page.keyboard.press("r")
             time.sleep(1)
@@ -186,7 +189,6 @@ def main():
             save_base64_images(all_screenshots, game_token, round_number)
 
             identified_location = vlm.identify_location(all_screenshots)
-            print(identified_location)
 
             player = geoguessr.submit_guess(
                 page,
@@ -195,13 +197,12 @@ def main():
                 identified_location["longitude"],
             )
 
-            _print_round_score(player, round_number)
+            _print_round_score(player, round_number, identified_location)
 
             time.sleep(1)
             page.reload()
 
         _print_final_score(page, game_token)
-        browser.close()
 
 
 if __name__ == "__main__":

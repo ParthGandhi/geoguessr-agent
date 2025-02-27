@@ -12,6 +12,14 @@ class InterestingObject(TypedDict):
     y: int
 
 
+class IdentifiedLocation(TypedDict):
+    explanation: str
+    country: str
+    region: str
+    latitude: float
+    longitude: float
+
+
 def identify_objects(image_base64: str) -> list[InterestingObject]:
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -74,4 +82,86 @@ def identify_objects(image_base64: str) -> list[InterestingObject]:
         },
         temperature=0.2,
     )
-    return json.loads(response.choices[0].message.content)['objects']  # type: ignore
+    return json.loads(response.choices[0].message.content)["objects"]  # type: ignore
+
+
+def identify_location(images_base64: list[str]) -> IdentifiedLocation:
+    if len(images_base64) < 3:
+        raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
+
+    prompt = """You will be given images from the game GeoGuessr. Your task is to analyze these images and determine the most likely location where they were taken. Use all available information to make your best guess.
+
+Carefully analyze each image, paying close attention to the following elements:
+1. Landscape and scenery
+2. Types of plants and animals
+3. Architecture and building styles
+4. Vehicles and transportation methods
+5. Road signs, street names, and other written information
+6. Cultural indicators (clothing, flags, monuments)
+7. Climate and weather conditions
+
+Remember to base your analysis solely on the information provided in the images."""
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                    }
+                    for image_base64 in images_base64
+                ],
+            },
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "latitude_longitude",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "explanation": {
+                            "type": "string",
+                            "description": "A detailed analysis of the images and the facts from there leading to the final answer",
+                        },
+                        "country": {
+                            "type": "string",
+                            "description": "The country name",
+                        },
+                        "region": {"type": "string", "description": "The region name"},
+                        "latitude": {
+                            "type": "number",
+                            "description": "The latitude coordinate, which represents the north-south position on the Earth's surface.",
+                        },
+                        "longitude": {
+                            "type": "number",
+                            "description": "The longitude coordinate, which represents the east-west position on the Earth's surface.",
+                        },
+                    },
+                    "required": [
+                        "explanation",
+                        "country",
+                        "region",
+                        "latitude",
+                        "longitude",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        temperature=0.30,
+    )
+    return json.loads(response.choices[0].message.content)  # type: ignore

@@ -155,6 +155,9 @@ def main():
 
         browser.close()
 
+        identified_location = vlm.identify_location(all_screenshots)
+        print(identified_location)
+
 
 if __name__ == "__main__":
     main()

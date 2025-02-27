@@ -3,7 +3,6 @@ import json
 import math
 import os
 import time
-import uuid
 from io import BytesIO
 from typing import List
 
@@ -85,14 +84,15 @@ def load_cookies() -> List[dict]:
         return json.load(f)
 
 
-def save_base64_images(images: List[str]) -> None:
+def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:
     """Saves base64 encoded images using PIL.
 
     Args:
         images: List of base64 encoded image strings
+        game_token: Current game token
+        round_number: Current round number
     """
-    folder_name = str(uuid.uuid4())
-    output_path = os.path.join("data", folder_name)
+    output_path = os.path.join("data", game_token, str(round_number))
     os.makedirs(output_path, exist_ok=True)
 
     print(f"Saving {len(images)} images to {output_path}")
@@ -140,31 +140,44 @@ def main():
         game_token = geoguessr.start_new_game(page)
         page.goto(f"https://www.geoguessr.com/game/{game_token}")
 
-        page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
+        # each game has 5 rounds
+        for round_number in range(1, 6):
+            print(f"\nStarting round {round_number}")
+            page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
 
-        # Wait for and click the first element (game start)
-        page.mouse.click(512, 512)
-        time.sleep(1)
+            # Wait for and click the first element (game start)
+            page.mouse.click(512, 512)
+            time.sleep(1)
 
-        # Press 'r' to reset to the starting point
-        page.keyboard.press("r")
-        time.sleep(1)
+            # Press 'r' to reset to the starting point
+            page.keyboard.press("r")
+            time.sleep(1)
 
-        all_screenshots = explore_location(page)
-        save_base64_images(all_screenshots)
+            all_screenshots = explore_location(page)
+            save_base64_images(all_screenshots, game_token, round_number)
 
-        identified_location = vlm.identify_location(all_screenshots)
-        print(identified_location)
+            identified_location = vlm.identify_location(all_screenshots)
+            print(identified_location)
 
-        player = geoguessr.submit_guess(
-            page,
-            game_token,
-            identified_location["latitude"],
-            identified_location["longitude"],
-        )
+            player = geoguessr.submit_guess(
+                page,
+                game_token,
+                identified_location["latitude"],
+                identified_location["longitude"],
+            )
 
-        print(f"Total score: {player.totalScore.amount} points")
-        print(f"Last guess distance: {player.guesses[-1].distance.meters['amount']} km")
+            round_distance = player.guesses[-1].distance.meters["amount"]
+            round_score = player.guesses[-1].roundScoreInPoints
+            round_score_in_percentage = player.guesses[-1].roundScoreInPercentage
+
+            print(
+                f"Round {round_number} score: {round_score} points, distance: {round_distance} km, score in percentage: {round_score_in_percentage}"
+            )
+            time.sleep(1)
+            page.reload()
+
+        print("\nGame Summary:")
+        print(f"Final score: {player.totalScore.amount} points")
 
         browser.close()
 

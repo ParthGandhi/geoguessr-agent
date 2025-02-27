@@ -2,7 +2,6 @@ import base64
 import json
 import math
 import os
-import time
 from io import BytesIO
 from typing import List
 
@@ -26,7 +25,7 @@ def take_screenshot(page: Page) -> str:
 def pan_right(page: Page) -> None:
     print("Panning right")
     page.keyboard.down("D")
-    time.sleep(1)
+    page.wait_for_timeout(1000)
     page.keyboard.up("D")
 
 
@@ -38,12 +37,12 @@ def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
     page.mouse.move(obj["x"], obj["y"])
 
     page.mouse.wheel(0, -1000)
-    time.sleep(1)
+    page.wait_for_timeout(1000)
 
     screenshot = take_screenshot(page)
 
     page.mouse.wheel(0, 1000)
-    time.sleep(1)
+    page.wait_for_timeout(1000)
     return screenshot
 
 
@@ -174,10 +173,10 @@ def _start_round(page: Page) -> None:
     # The keyboard controls aren't activated till the first mouse click.
     # So click somewhere randomly on the page (which may move the map around), then go back to the starting point.
     page.mouse.click(512, 512)
-    time.sleep(1)
+    page.wait_for_timeout(1000)
     # Press 'r' to reset to the starting point
     page.keyboard.press("r")
-    time.sleep(1)
+    page.wait_for_timeout(1000)
 
 
 def main():
@@ -204,7 +203,7 @@ def main():
             )
 
             _print_round_score(player, round_number, identified_location)
-            time.sleep(1)
+            page.wait_for_timeout(1000)
 
         _print_final_score(page, game_token)
 

@@ -106,3 +106,38 @@ def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
         f"Successfully submitted guess. Score: {player.totalScore.amount} {player.totalScore.unit}"
     )
     return player
+
+
+def start_new_game(page: Page) -> str:
+    print("Starting new game")
+
+    settings = {
+        "map": "world",
+        "type": "standard",
+        "timeLimit": 0,
+        "forbidMoving": True,
+        "forbidZooming": False,
+        "forbidRotating": False,
+    }
+
+    api_context = page.request
+    response = api_context.post(
+        "https://www.geoguessr.com/api/v3/games",
+        headers={
+            "accept": "*/*",
+            "content-type": "application/json",
+            "x-client": "web",
+        },
+        data=settings,
+    )
+
+    if not response.ok:
+        print(
+            f"Failed to start game. Status: {response.status}, Response: {response.text()}"
+        )
+        raise Exception("Failed to start game")
+
+    game_data = json.loads(response.text())
+    game_token = game_data["token"]
+    print(f"Started new game with token: {game_token}")
+    return game_token

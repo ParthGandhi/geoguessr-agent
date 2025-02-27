@@ -123,9 +123,6 @@ def explore_location(page: Page) -> List[str]:
 
 
 def main():
-    game_url = "https://www.geoguessr.com/game/0s1D9AN6yhL5hGeZ"
-    game_token = game_url.split("/")[-1]
-
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         context = browser.new_context(
@@ -138,9 +135,10 @@ def main():
         cookies = load_cookies()
         context.add_cookies(cookies)
 
-        # Create new page and navigate
         page = context.new_page()
-        page.goto(game_url)
+
+        game_token = geoguessr.start_new_game(page)
+        page.goto(f"https://www.geoguessr.com/game/{game_token}")
 
         page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
 

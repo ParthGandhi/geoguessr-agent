@@ -18,7 +18,7 @@ load_dotenv()
 
 def take_screenshot(page: Page) -> str:
     print("Taking screenshot")
-    screenshot_bytes = page.screenshot(type="jpeg", quality=80)
+    screenshot_bytes = page.screenshot(type="jpeg")
     screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
     return screenshot_base64
 

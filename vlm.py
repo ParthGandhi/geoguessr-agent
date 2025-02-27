@@ -95,7 +95,7 @@ Carefully analyze each image, paying close attention to the following elements:
 1. Landscape and scenery
 2. Types of plants and animals
 3. Architecture and building styles
-4. Vehicles and transportation methods
+4. Vehicles, transportation methods, and which side of the road they are on
 5. Road signs, street names, and other written information
 6. Cultural indicators (clothing, flags, monuments)
 7. Climate and weather conditions

@@ -42,8 +42,13 @@ class Player:
     id: str
 
 
-def parse_guess_response(response_text: str) -> Player:
-    """Parse the GeoGuessr API response and return the player data."""
+
+
+def _parse_game_state(response_text: str) -> Player:
+    """
+    Parses the full game state response into a Player object.
+    We only care about the player data, everything else is ignored.
+    """
     data = json.loads(response_text)
     player_data = data["player"]
 
@@ -87,11 +92,6 @@ def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
 
     response = api_context.post(
         f"https://www.geoguessr.com/api/v3/games/{game_token}",
-        headers={
-            "accept": "*/*",
-            "content-type": "application/json",
-            "x-client": "web",
-        },
         data=data,
     )
 
@@ -101,10 +101,25 @@ def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
         )
         raise Exception("Failed to submit guess")
 
-    player = parse_guess_response(response.text())
+    player = _parse_game_state(response.text())
     print(
         f"Successfully submitted guess. Score: {player.totalScore.amount} {player.totalScore.unit}"
     )
+    return player
+
+
+def get_game_state(page: Page, game_token: str) -> Player:
+    api_context = page.request
+    response = api_context.get(
+        f"https://www.geoguessr.com/api/v3/games/{game_token}",
+    )
+    if not response.ok:
+        print(
+            f"Failed to get game state. Status: {response.status}, Response: {response.text()}"
+        )
+        raise Exception("Failed to get game state")
+
+    player = _parse_game_state(response.text())
     return player
 
 
@@ -123,11 +138,6 @@ def start_new_game(page: Page) -> str:
     api_context = page.request
     response = api_context.post(
         "https://www.geoguessr.com/api/v3/games",
-        headers={
-            "accept": "*/*",
-            "content-type": "application/json",
-            "x-client": "web",
-        },
         data=settings,
     )
 

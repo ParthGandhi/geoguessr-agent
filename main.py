@@ -122,6 +122,35 @@ def explore_location(page: Page) -> List[str]:
     return screenshots
 
 
+def _print_final_score(page: Page, game_token: str) -> None:
+    game_state = geoguessr.get_game_state(page, game_token)
+
+    total_score = game_state.totalScore.amount
+    total_percentage = game_state.totalScore.percentage
+    total_distance_km = float(game_state.totalDistance.meters["amount"])
+
+    # Find best and worst guesses
+    distances = [g.distanceInMeters for g in game_state.guesses]
+    best_distance = min(distances) / 1000  # Convert to km
+    worst_distance = max(distances) / 1000  # Convert to km
+
+    print("\n=== Final Results ===")
+    print(f"Total Score: {total_score}, ({total_percentage:.1f}%)")
+    print(f"Total Distance: {total_distance_km:.1f} km")
+    print(f"Best Guess: {best_distance:.1f} km")
+    print(f"Worst Guess: {worst_distance:.1f} km")
+    print("==================\n")
+
+def _print_round_score(player: geoguessr.Player, round_number: int) -> None:
+    guess = player.guesses[round_number - 1]
+    distance_km = float(guess.distance.meters["amount"])
+    print("\n=== Round Results ===")
+    print(f"Round {round_number}")
+    print(f"Score: {guess.roundScoreInPoints}, ({guess.roundScoreInPercentage:.1f}%)")
+    print(f"Distance: {distance_km:.1f} km")
+    print("==================\n")
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -166,19 +195,12 @@ def main():
                 identified_location["longitude"],
             )
 
-            round_distance = player.guesses[-1].distance.meters["amount"]
-            round_score = player.guesses[-1].roundScoreInPoints
-            round_score_in_percentage = player.guesses[-1].roundScoreInPercentage
+            _print_round_score(player, round_number)
 
-            print(
-                f"Round {round_number} score: {round_score} points, distance: {round_distance} km, score in percentage: {round_score_in_percentage}"
-            )
             time.sleep(1)
             page.reload()
 
-        print("\nGame Summary:")
-        print(f"Final score: {player.totalScore.amount} points")
-
+        _print_final_score(page, game_token)
         browser.close()
 
 

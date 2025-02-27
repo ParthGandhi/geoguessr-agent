@@ -31,8 +31,8 @@ def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
     print(f"Zooming in to see object {obj['name']} at {obj['x']}, {obj['y']}")
     page.mouse.move(obj["x"], obj["y"])
 
-    zoom_amount = 200
-    zoom_steps = 3
+    zoom_amount = 250
+    zoom_steps = 2
 
     # Zoom in with multiple smaller increments
     for _ in range(zoom_steps):

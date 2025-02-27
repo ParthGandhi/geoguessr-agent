@@ -4,15 +4,12 @@ from io import BytesIO
 from typing import List
 
 from PIL import Image
-from playwright.sync_api import Page
 
 import geoguessr
 import vlm
 
 
-def print_final_score(page: Page, game_token: str) -> None:
-    game_state = geoguessr.get_game_state(page, game_token)
-
+def print_final_score(game_state: geoguessr.GameState) -> None:
     total_score = game_state.totalScore.amount
     total_percentage = game_state.totalScore.percentage
     total_distance_km = float(game_state.totalDistance.meters["amount"])
@@ -31,11 +28,11 @@ def print_final_score(page: Page, game_token: str) -> None:
 
 
 def print_round_score(
-    player: geoguessr.Player,
+    game_state: geoguessr.GameState,
     round_number: int,
     identified_location: vlm.IdentifiedLocation,
 ) -> None:
-    guess = player.guesses[round_number - 1]
+    guess = game_state.player.guesses[round_number - 1]
     distance_km = float(guess.distance.meters["amount"])
     print("\n=== Round Results ===")
     print(f"Round {round_number}")

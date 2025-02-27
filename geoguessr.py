@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from playwright.sync_api import Page
 
@@ -37,15 +37,28 @@ class Player:
     guesses: List[Guess]
 
 
-def _parse_game_state(response_text: str) -> Player:
+@dataclass
+class Round:
+    lat: float
+    lng: float
+
+
+@dataclass
+class GameState:
+    token: str
+    player: Player
+    rounds: List[Round]
+
+
+def _parse_game_state(response_text: str) -> GameState:
     """
-    Parses the full game state response into a Player object.
-    We only care about the player data, everything else is ignored.
+    Parses the game state response into a GameState object.
+    Only includes token, player data, and rounds information.
     """
     data = json.loads(response_text)
-    player_data = data["player"]
 
-    # Convert the JSON data into our dataclass structure
+    # Parse player data as before
+    player_data = data["player"]
     player = Player(
         totalScore=Score(**player_data["totalScore"]),
         totalDistance=Distance(**player_data["totalDistance"]),
@@ -63,10 +76,17 @@ def _parse_game_state(response_text: str) -> Player:
             for g in player_data["guesses"]
         ],
     )
-    return player
+
+    rounds = [Round(lat=r["lat"], lng=r["lng"]) for r in data["rounds"]]
+
+    return GameState(
+        token=data["token"],
+        player=player,
+        rounds=rounds,
+    )
 
 
-def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
+def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> GameState:
     print(f"Submitting guess for {game_token=} at {lat=}, {lng=}")
 
     api_context = page.request
@@ -88,11 +108,11 @@ def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> Player:
             f"Failed to get game state. Status: {response.status}, Response: {response.text()}"
         )
 
-    player = _parse_game_state(response.text())
-    return player
+    game_state = _parse_game_state(response.text())
+    return game_state
 
 
-def get_game_state(page: Page, game_token: str) -> Player:
+def get_game_state(page: Page, game_token: str) -> GameState:
     api_context = page.request
     response = api_context.get(
         f"https://www.geoguessr.com/api/v3/games/{game_token}",
@@ -102,8 +122,8 @@ def get_game_state(page: Page, game_token: str) -> Player:
             f"Failed to get game state. Status: {response.status}, Response: {response.text()}"
         )
 
-    player = _parse_game_state(response.text())
-    return player
+    game_state = _parse_game_state(response.text())
+    return game_state
 
 
 def start_new_game(page: Page) -> str:

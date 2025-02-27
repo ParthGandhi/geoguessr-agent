@@ -210,7 +210,7 @@ Instructions:
 Remember to base your analysis and conclusions solely on the information provided in the image."""
 
     response = client.chat.completions.create(
-        model="gpt-4o-2024-08-06"
+        model="gpt-4o-2024-08-06",
         messages=[
             {
                 "role": "system",

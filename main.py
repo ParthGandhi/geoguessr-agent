@@ -43,17 +43,18 @@ def main():
 
             identified_location = vlm.identify_location_gpt4o(all_screenshots)
 
-            player = geoguessr.submit_guess(
+            game_state = geoguessr.submit_guess(
                 page,
                 game_token,
                 identified_location["latitude"],
                 identified_location["longitude"],
             )
 
-            output.print_round_score(player, round_number, identified_location)
+            output.print_round_score(game_state, round_number, identified_location)
             page.wait_for_timeout(1000)
 
-        output.print_final_score(page, game_token)
+        final_game_state = geoguessr.get_game_state(page, game_token)
+        output.print_final_score(final_game_state)
 
 
 if __name__ == "__main__":

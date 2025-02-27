@@ -1,4 +1,6 @@
 import json
+import math
+from typing import List
 
 from openai import OpenAI
 from typing_extensions import TypedDict
@@ -165,3 +167,29 @@ Remember to base your analysis solely on the information provided in the images.
         # temperature=0.30,
     )
     return json.loads(response.choices[0].message.content)  # type: ignore
+
+
+def deduplicate_interesting_objects(
+    objects: List[InterestingObject],
+) -> List[InterestingObject]:
+    """
+    Sometimes the object detection returns multiple items for the same object or objects very close to each other.
+    In either case, we need to only zoom in once to see what we need.
+    """
+    picked_objects: List[InterestingObject] = []
+    for obj in objects:
+        # Check if this object is too close to any already kept object
+        is_duplicate = False
+        for picked_obj in picked_objects:
+            distance = math.dist(
+                (obj["x"], obj["y"]), (picked_obj["x"], picked_obj["y"])
+            )
+            if distance < 250:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            picked_objects.append(obj)
+
+    print(f"Deduplicated {len(objects)} objects to {len(picked_objects)}")
+    return picked_objects

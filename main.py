@@ -121,8 +121,41 @@ def explore_location(page: Page) -> List[str]:
     return screenshots
 
 
+def submit_guess(page: Page, game_token: str, lat: float, lng: float) -> None:
+    print(f"Submitting guess at coordinates: {lat}, {lng}")
+
+    api_context = page.request
+    data = {
+        "token": game_token,
+        "lat": lat,
+        "lng": lng,
+        "timedOut": False,
+        "stepsCount": 0,
+    }
+
+    response = api_context.post(
+        f"https://www.geoguessr.com/api/v3/games/{game_token}",
+        headers={
+            "accept": "*/*",
+            "content-type": "application/json",
+            "x-client": "web",
+        },
+        data=data,
+    )
+
+    if not response.ok:
+        print(
+            f"Failed to submit guess. Status: {response.status}, Response: {response.text()}"
+        )
+        raise Exception("Failed to submit guess")
+
+    print(response.text())
+    print("Successfully submitted guess")
+
+
 def main():
-    game_url = "https://www.geoguessr.com/game/lgabJXZkbXKNKsqM"
+    game_url = "https://www.geoguessr.com/game/0s1D9AN6yhL5hGeZ"
+    game_token = game_url.split("/")[-1]
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -153,10 +186,17 @@ def main():
         all_screenshots = explore_location(page)
         save_base64_images(all_screenshots)
 
-        browser.close()
-
         identified_location = vlm.identify_location(all_screenshots)
         print(identified_location)
+
+        submit_guess(
+            page,
+            game_token,
+            identified_location["latitude"],
+            identified_location["longitude"],
+        )
+
+        browser.close()
 
 
 if __name__ == "__main__":

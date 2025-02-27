@@ -103,7 +103,7 @@ Carefully analyze each image, paying close attention to the following elements:
 Remember to base your analysis solely on the information provided in the images."""
 
     response = client.chat.completions.create(
-        model="o1",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",

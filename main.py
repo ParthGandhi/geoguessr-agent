@@ -154,36 +154,42 @@ def _print_round_score(
     print("==================\n")
 
 
+def _get_page(p) -> Page:
+    browser = p.chromium.launch(headless=False)
+    context = browser.new_context(
+        locale="en-US",
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36",
+        viewport={"width": 1024, "height": 1024},
+    )
+    cookies = load_cookies()
+    context.add_cookies(cookies)
+    return context.new_page()
+
+
+def _start_round(page: Page) -> None:
+    # reload to get the latest round
+    page.reload()
+    page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
+
+    # The keyboard controls aren't activated till the first mouse click.
+    # So click somewhere randomly on the page (which may move the map around), then go back to the starting point.
+    page.mouse.click(512, 512)
+    time.sleep(1)
+    # Press 'r' to reset to the starting point
+    page.keyboard.press("r")
+    time.sleep(1)
+
+
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context(
-            locale="en-US",
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36",
-            viewport={"width": 1024, "height": 1024},
-        )
-
-        # Load cookies
-        cookies = load_cookies()
-        context.add_cookies(cookies)
-
-        page = context.new_page()
-
+        page = _get_page(p)
         game_token = geoguessr.start_new_game(page)
         page.goto(f"https://www.geoguessr.com/game/{game_token}")
 
         # each game has 5 rounds
-        for round_number in range(1, 6):
+        for round_number in range(1, 2):
             print(f"\nStarting round {round_number}")
-            page.wait_for_selector("text='Place your pin on the map'", timeout=10000)
-
-            # The keyboard controls aren't activated till the first mouse click.
-            # So click somewhere randomly on the page (which may move the map around), then go back to the starting point.
-            page.mouse.click(512, 512)
-            time.sleep(1)
-            # Press 'r' to reset to the starting point
-            page.keyboard.press("r")
-            time.sleep(1)
+            _start_round(page)
 
             all_screenshots = explore_location(page)
             save_base64_images(all_screenshots, game_token, round_number)
@@ -198,9 +204,7 @@ def main():
             )
 
             _print_round_score(player, round_number, identified_location)
-
             time.sleep(1)
-            page.reload()
 
         _print_final_score(page, game_token)
 

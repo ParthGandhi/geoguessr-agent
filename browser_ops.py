@@ -49,15 +49,6 @@ def zoom_in_screenshot(page: Page, obj: vlm.InterestingObject) -> str:
     return screenshot
 
 
-def _load_cookies() -> List[dict]:
-    cookies_path = os.path.abspath("cookies.json")
-    if not os.path.exists(cookies_path):
-        raise FileNotFoundError(f"Cookies file not found at {cookies_path}")
-
-    with open(cookies_path, "r") as f:
-        return json.load(f)
-
-
 def get_page(p) -> Page:
     browser = p.chromium.launch(headless=False)
     context = browser.new_context(
@@ -65,8 +56,24 @@ def get_page(p) -> Page:
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36",
         viewport={"width": 1024, "height": 1024},
     )
-    cookies = _load_cookies()
-    context.add_cookies(cookies)
+
+    ncfa_token = os.getenv("GEOGUESSR_NCFA")
+    if not ncfa_token:
+        raise ValueError("GEOGUESSR_NCFA environment variable must be set")
+    context.add_cookies(
+        [
+            {
+                "name": "_ncfa",
+                "value": ncfa_token,
+                "domain": ".geoguessr.com",
+                "path": "/",
+                "httpOnly": True,
+                "secure": True,
+                "sameSite": "Lax",
+            }
+        ]
+    )
+
     return context.new_page()
 
 

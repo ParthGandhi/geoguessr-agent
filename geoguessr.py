@@ -58,13 +58,8 @@ class GameState:
 
 
 def _parse_game_state(response_text: str) -> GameState:
-    """
-    Parses the game state response into a GameState object.
-    Only includes token, player data, and rounds information.
-    """
     data = json.loads(response_text)
 
-    # Parse player data
     player_data = data["player"]
     player = Player(
         totalScore=Score(**player_data["totalScore"]),

@@ -92,7 +92,6 @@ class GameResults:
 
         self.rounds.append(round_result)
 
-        # Check score prediction
         self._check_score_prediction(
             game_state,
             gpt4o_location["latitude"],
@@ -109,6 +108,10 @@ class GameResults:
         predicted_lng: float,
         actual_score: int,
     ) -> None:
+        """
+        This checks that the score we calculate matches the actual score.
+        This validates that the scoring function is correct.
+        """
         answer_coords = game_state.rounds[-1]
 
         predicted_score = _calculate_score(

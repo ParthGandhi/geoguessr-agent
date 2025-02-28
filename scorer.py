@@ -8,11 +8,10 @@ https://www.plonkit.net/beginners-guide#:~:text=Scoring,score%20drop%2Doff%20is%
 
 import math
 from dataclasses import dataclass
-from typing import Dict, List
-
-from tabulate import tabulate
+from typing import List
 
 import geoguessr
+import vlm
 
 
 @dataclass
@@ -41,8 +40,8 @@ class GameResults:
         self,
         game_state: geoguessr.GameState,
         round_number: int,
-        gpt4o_location: Dict,
-        o1_location: Dict,
+        gpt4o_location: vlm.IdentifiedLocation,
+        o1_location: vlm.IdentifiedLocation,
         actual_score: int,
     ) -> RoundResult:
         """Save the results for a single round, including both models' guesses."""
@@ -128,138 +127,6 @@ class GameResults:
             raise ValueError(
                 f"Score prediction mismatch! Predicted: {predicted_score}, Actual: {actual_score}"
             )
-
-    def print_last_round(self) -> None:
-        """Print the results of the last round."""
-        if not self.rounds:
-            print("No rounds played yet!")
-            return
-
-        last_round = self.rounds[-1]
-        lines = [
-            "\n=== Round Results ===",
-            f"Round {last_round.round_number}",
-            "",
-            "Actual Location:",
-            f"Location: {last_round.actual_location.lat:.4f}, {last_round.actual_location.lng:.4f}",
-            "",
-            "GPT-4O Guess:",
-            f"Location: {last_round.gpt4o_guess.latitude:.4f}, {last_round.gpt4o_guess.longitude:.4f}",
-            f"Score: {last_round.gpt4o_guess.score} points",
-            f"Distance: {last_round.gpt4o_guess.distance_km:.1f} km",
-            f"Explanation: {last_round.gpt4o_guess.explanation}",
-            "",
-            "O1 Guess:",
-            f"Location: {last_round.o1_guess.latitude:.4f}, {last_round.o1_guess.longitude:.4f}",
-            f"Score: {last_round.o1_guess.score} points",
-            f"Distance: {last_round.o1_guess.distance_km:.1f} km",
-            f"Explanation: {last_round.o1_guess.explanation}",
-            "==================\n",
-        ]
-        print("\n".join(lines))
-
-    def print_final_score_table(self) -> None:
-        """Print the final scores and statistics for both models in a table format."""
-        gpt4o_distances = [r.gpt4o_guess.distance_km for r in self.rounds]
-        o1_distances = [r.o1_guess.distance_km for r in self.rounds]
-
-        gpt4o_total = sum(r.gpt4o_guess.score for r in self.rounds)
-        o1_total = sum(r.o1_guess.score for r in self.rounds)
-        max_possible = len(self.rounds) * 5000
-
-        data = [
-            [
-                "Model",
-                "Score %",
-                "Avg Score/Game (/25,000)",
-                "Median Distance (km)",
-                "Best Guess (km)",
-                "Worst Guess (km)",
-            ],
-            [
-                "GPT-4o",
-                f"{(gpt4o_total/(max_possible)*100):.1f}%",
-                f"{gpt4o_total:,d}",
-                f"{sorted(gpt4o_distances)[len(gpt4o_distances)//2]:,.1f}",
-                f"{min(gpt4o_distances):,.1f}",
-                f"{max(gpt4o_distances):,.1f}",
-            ],
-            [
-                "o1",
-                f"{(o1_total/(max_possible)*100):.1f}%",
-                f"{o1_total:,d}",
-                f"{sorted(o1_distances)[len(o1_distances)//2]:,.1f}",
-                f"{min(o1_distances):,.1f}",
-                f"{max(o1_distances):,.1f}",
-            ],
-        ]
-
-        print("\n=== Final Results ===\n")
-        print(tabulate(data, headers="firstrow", tablefmt="github"))
-        print("\n==================\n")
-
-
-def print_aggregate_results(all_games: List["GameResults"]) -> None:
-    """Print aggregate statistics across all games."""
-    total_games = len(all_games)
-    total_rounds = sum(len(game.rounds) for game in all_games)
-
-    # Collect all rounds for statistics
-    gpt4o_scores = [r.gpt4o_guess.score for game in all_games for r in game.rounds]
-    o1_scores = [r.o1_guess.score for game in all_games for r in game.rounds]
-    gpt4o_distances = [
-        r.gpt4o_guess.distance_km for game in all_games for r in game.rounds
-    ]
-    o1_distances = [r.o1_guess.distance_km for game in all_games for r in game.rounds]
-
-    # Calculate game totals
-    gpt4o_game_scores = [
-        sum(r.gpt4o_guess.score for r in game.rounds) for game in all_games
-    ]
-    o1_game_scores = [sum(r.o1_guess.score for r in game.rounds) for game in all_games]
-
-    # Calculate totals and averages
-    gpt4o_total = sum(gpt4o_scores)
-    o1_total = sum(o1_scores)
-
-    data = [
-        [
-            "Model",
-            "Score %",
-            "Avg Score/Game (/25,000)",
-            "Best Game (/25,000)",
-            "Worst Game (/25,000)",
-            "Median Distance (km)",
-            "Best Guess (km)",
-            "Worst Guess (km)",
-        ],
-        [
-            "GPT-4o",
-            f"{(gpt4o_total/(total_rounds*5000)*100):.1f}%",
-            f"{gpt4o_total/total_games:,.1f}",
-            f"{max(gpt4o_game_scores):,d}",
-            f"{min(gpt4o_game_scores):,d}",
-            f"{sorted(gpt4o_distances)[len(gpt4o_distances)//2]:,.1f}",
-            f"{min(gpt4o_distances):,.1f}",
-            f"{max(gpt4o_distances):,.1f}",
-        ],
-        [
-            "o1",
-            f"{(o1_total/(total_rounds*5000)*100):.1f}%",
-            f"{o1_total/total_games:,.1f}",
-            f"{max(o1_game_scores):,d}",
-            f"{min(o1_game_scores):,d}",
-            f"{sorted(o1_distances)[len(o1_distances)//2]:,.1f}",
-            f"{min(o1_distances):,.1f}",
-            f"{max(o1_distances):,.1f}",
-        ],
-    ]
-
-    print(
-        f"\n=== Aggregate Results ({total_games:,d} games, {total_rounds:,d} rounds) ===\n"
-    )
-    print(tabulate(data, headers="firstrow", tablefmt="github"))
-    print("\n==================\n")
 
 
 def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

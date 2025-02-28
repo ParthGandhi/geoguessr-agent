@@ -9,10 +9,11 @@ from playwright.sync_api import Page, sync_playwright
 
 load_dotenv()
 
-import browser_ops
-import geoguessr
-import scorer
-import vlm
+import browser_ops  # noqa: E402
+import geoguessr  # noqa: E402
+import scorer  # noqa: E402
+import vlm  # noqa: E402
+import output  # noqa: E402
 
 
 def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:
@@ -45,6 +46,41 @@ def explore_location(page: Page) -> List[str]:
     return screenshots
 
 
+def _play_round(
+    page: Page, game_token: str, round_number: int, game_results: scorer.GameResults
+) -> None:
+    """Play a single round of GeoGuessr and record the results."""
+    print(f"\nStarting round {round_number}")
+    browser_ops.start_round(page)
+
+    all_screenshots = explore_location(page)
+    save_base64_images(all_screenshots, game_token, round_number)
+
+    # Get predictions from both models
+    gpt4o_location = vlm.identify_location_gpt4o(all_screenshots)
+    o1_location = vlm.identify_location_o1(all_screenshots)
+
+    # Submit GPT-4O guess and get actual score
+    game_state = geoguessr.submit_guess(
+        page,
+        game_token,
+        gpt4o_location["latitude"],
+        gpt4o_location["longitude"],
+    )
+
+    # Save round results and print
+    game_results.save_round_results(
+        game_state,
+        round_number,
+        gpt4o_location,
+        o1_location,
+        game_state.player.guesses[-1].roundScoreInPoints,
+    )
+    output.print_round_results(game_results.rounds[-1])
+
+    page.wait_for_timeout(1000)
+
+
 def main():
     NUM_GAMES = 5
     all_games = []
@@ -65,43 +101,14 @@ def main():
 
             # each game has 5 rounds
             for round_number in range(1, 6):
-                print(f"\nStarting round {round_number}")
-                browser_ops.start_round(page)
+                _play_round(page, game_token, round_number, game_results)
 
-                all_screenshots = explore_location(page)
-                save_base64_images(all_screenshots, game_token, round_number)
-
-                # Get predictions from both models
-                gpt4o_location = vlm.identify_location_gpt4o(all_screenshots)
-                o1_location = vlm.identify_location_o1(all_screenshots)
-
-                # Submit GPT-4O guess and get actual score
-                game_state = geoguessr.submit_guess(
-                    page,
-                    game_token,
-                    gpt4o_location["latitude"],
-                    gpt4o_location["longitude"],
-                )
-
-                # Save round results and print
-                game_results.save_round_results(
-                    game_state,
-                    round_number,
-                    gpt4o_location,
-                    o1_location,
-                    game_state.player.guesses[-1].roundScoreInPoints,
-                )
-                game_results.print_last_round()
-
-                page.wait_for_timeout(1000)
-
-            game_results.print_final_score_table()
+            output.print_game_results(game_results)
             all_games.append(game_results)
             # print the aggregate results after each game
-            scorer.print_aggregate_results(all_games)
+            output.print_aggregate_results(all_games)
 
-        # print the final aggregate results
-        scorer.print_aggregate_results(all_games)
+        output.print_aggregate_results(all_games)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 import json
-import math
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from playwright.sync_api import Page
 
@@ -162,59 +161,3 @@ def start_new_game(page: Page) -> str:
     game_token = response.json()["token"]
     print(f"Started new game with {game_token=}")
     return game_token
-
-
-"""
-Geogussr scoring is exponential and depends on the map size, etc.
-
-https://www.reddit.com/r/geoguessr/comments/1cdelb2/can_somebody_help_me_understand_how_geoguesser/l1csyjc/
-https://www.reddit.com/r/geoguessr/comments/15koyd6/how_much_close_you_have_to_be_for_5k_score/jvboz87/
-https://www.plonkit.net/beginners-guide#:~:text=Scoring,score%20drop%2Doff%20is%20exponential.
-"""
-
-
-def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Calculate the great-circle distance between two points in kilometers."""
-    R = 6371.0  # Earth's radius in kilometers
-
-    # Convert to radians
-    lat1, lng1, lat2, lng2 = map(math.radians, [lat1, lng1, lat2, lng2])
-
-    # Differences
-    dlat = lat2 - lat1
-    dlng = lng2 - lng1
-
-    # Haversine formula
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    )
-    c = 2 * math.asin(math.sqrt(a))
-
-    return R * c
-
-
-def predict_score(
-    game_state: GameState,
-    answer_lat: float,
-    answer_lng: float,
-    guess_lat: float,
-    guess_lng: float,
-) -> int:
-    """
-    Predict the score for a guess at the given coordinates.
-    """
-    guessed_distance_km = _haversine_distance(
-        answer_lat,
-        answer_lng,
-        guess_lat,
-        guess_lng,
-    )
-    map_size_km = _haversine_distance(
-        game_state.bounds.min["lat"],
-        game_state.bounds.min["lng"],
-        game_state.bounds.max["lat"],
-        game_state.bounds.max["lng"],
-    )
-    score = round(5000 * math.exp(-10 * guessed_distance_km / map_size_km))
-    return score

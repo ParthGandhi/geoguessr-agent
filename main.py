@@ -1,14 +1,32 @@
+import base64
+import os
+from io import BytesIO
 from typing import List
 
 from dotenv import load_dotenv
+from PIL import Image
 from playwright.sync_api import Page, sync_playwright
 
 import browser_ops
 import geoguessr
-import output
+import scorer
 import vlm
 
 load_dotenv()
+
+
+def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:
+    """
+    Saves all the images to the data directory for this game and round.
+    """
+    output_path = os.path.join("data", game_token, str(round_number))
+    os.makedirs(output_path, exist_ok=True)
+    print(f"Saving {len(images)} images to {output_path}")
+    for i, img_str in enumerate(images):
+        img_data = base64.b64decode(img_str)
+        img = Image.open(BytesIO(img_data))
+        img_path = os.path.join(output_path, f"image_{i}.png")
+        img.save(img_path)
 
 
 def explore_location(page: Page) -> List[str]:
@@ -27,64 +45,52 @@ def explore_location(page: Page) -> List[str]:
     return screenshots
 
 
-def check_score_prediction(
-    game_state: geoguessr.GameState,
-    round_number: int,
-    identified_location: vlm.IdentifiedLocation,
-) -> None:
-    answer_coords = game_state.rounds[round_number - 1]
-
-    predicted_score = geoguessr.predict_score(
-        game_state,
-        answer_coords.lat,
-        answer_coords.lng,
-        identified_location["latitude"],
-        identified_location["longitude"],
-    )
-
-    actual_score = game_state.player.guesses[-1].roundScoreInPoints
-    score_diff = abs(predicted_score - actual_score)
-
-    if score_diff > 1:
-        print(
-            f"Score prediction mismatch! Predicted: {predicted_score}, Actual: {actual_score}"
-        )
-    else:
-        print(
-            f"Score prediction matched! Predicted: {predicted_score}, Actual: {actual_score}"
-        )
-
-
 def main():
     with sync_playwright() as p:
         page = browser_ops.get_page(p)
         game_token = geoguessr.start_new_game(page)
         page.goto(f"https://www.geoguessr.com/game/{game_token}")
 
+        game_results = scorer.GameResults(
+            game_token=game_token,
+            rounds=[],
+            final_score_gpt4o=0,  # Changed from gpt4v
+            final_score_o1=0,  # Changed from claude
+        )
+
         # each game has 5 rounds
-        for round_number in range(1, 6):
+        for round_number in range(1, 3):
             print(f"\nStarting round {round_number}")
             browser_ops.start_round(page)
 
             all_screenshots = explore_location(page)
-            output.save_base64_images(all_screenshots, game_token, round_number)
+            save_base64_images(all_screenshots, game_token, round_number)
 
-            identified_location = vlm.identify_location_gpt4o(all_screenshots)
+            # Get predictions from both models
+            gpt4o_location = vlm.identify_location_gpt4o(all_screenshots)
+            o1_location = vlm.identify_location_o1(all_screenshots)
 
-            # Submit the guess and get actual score
+            # Submit GPT-4O guess and get actual score
             game_state = geoguessr.submit_guess(
                 page,
                 game_token,
-                identified_location["latitude"],
-                identified_location["longitude"],
+                gpt4o_location["latitude"],
+                gpt4o_location["longitude"],
             )
 
-            output.print_round_score(game_state, round_number, identified_location)
-            check_score_prediction(game_state, round_number, identified_location)
+            # Save round results and print
+            game_results.save_round_results(
+                game_state,
+                round_number,
+                gpt4o_location,
+                o1_location,
+                game_state.player.guesses[-1].roundScoreInPoints,
+            )
+            game_results.print_last_round()
+
             page.wait_for_timeout(1000)
 
-        final_game_state = geoguessr.get_game_state(page, game_token)
-        output.print_final_score(final_game_state)
+        game_results.print_final_score()
 
 
 if __name__ == "__main__":

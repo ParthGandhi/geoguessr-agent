@@ -139,9 +139,7 @@ def start_new_game(page: Page) -> str:
     print("Starting new game")
 
     settings = {
-        # A Community World map
-        # https://www.reddit.com/r/geoguessr/comments/169tfm4/acw_vs_adw_vs_world/jz3v1oq/
-        "map": "62a44b22040f04bd36e8a914",
+        "map": "world",
         "type": "standard",
         "timeLimit": 0,
         "forbidMoving": True,

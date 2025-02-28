@@ -57,7 +57,7 @@ def main():
         )
 
         # each game has 5 rounds
-        for round_number in range(1, 6):
+        for round_number in range(1, 2):
             print(f"\nStarting round {round_number}")
             browser_ops.start_round(page)
 
@@ -88,7 +88,7 @@ def main():
 
             page.wait_for_timeout(1000)
 
-        game_results.print_final_score()
+        game_results.print_final_score_table()
 
 
 if __name__ == "__main__":

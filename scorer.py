@@ -10,6 +10,8 @@ import math
 from dataclasses import dataclass
 from typing import Dict, List
 
+from tabulate import tabulate
+
 import geoguessr
 
 
@@ -150,44 +152,41 @@ class GameResults:
         ]
         print("\n".join(lines))
 
-    def print_final_score(self) -> None:
-        """Print the final scores and statistics for both models."""
+    def print_final_score_table(self) -> None:
+        """Print the final scores and statistics for both models in a table format."""
         gpt4o_distances = [r.gpt4o_guess.distance_km for r in self.rounds]
         o1_distances = [r.o1_guess.distance_km for r in self.rounds]
 
-        total_score_gpt4o = sum(r.gpt4o_guess.score for r in self.rounds)
-        total_score_o1 = sum(r.o1_guess.score for r in self.rounds)
-        total_distance_gpt4o = sum(gpt4o_distances)
-        total_distance_o1 = sum(o1_distances)
-
-        gpt4o_avg_dist = total_distance_gpt4o / len(self.rounds)
-        o1_avg_dist = total_distance_o1 / len(self.rounds)
-
-        lines = [
-            "\n=== Final Results ===",
-            "",
-            "Scores:",
-            f"GPT-4O: {total_score_gpt4o} points",
-            f"O1: {total_score_o1} points",
-            "",
-            "Total Distances:",
-            f"GPT-4O: {total_distance_gpt4o:.1f} km",
-            f"O1: {total_distance_o1:.1f} km",
-            "",
-            "Average Distances:",
-            f"GPT-4O: {gpt4o_avg_dist:.1f} km",
-            f"O1: {o1_avg_dist:.1f} km",
-            "",
-            "Best Guesses:",
-            f"GPT-4O: {min(gpt4o_distances):.1f} km",
-            f"O1: {min(o1_distances):.1f} km",
-            "",
-            "Worst Guesses:",
-            f"GPT-4O: {max(gpt4o_distances):.1f} km",
-            f"O1: {max(o1_distances):.1f} km",
-            "==================\n",
+        data = [
+            [
+                "Model",
+                "Total Score",
+                "Total Distance (km)",
+                "Avg Distance (km)",
+                "Best Guess (km)",
+                "Worst Guess (km)",
+            ],
+            [
+                "GPT-4O",
+                sum(r.gpt4o_guess.score for r in self.rounds),
+                f"{sum(gpt4o_distances):.1f}",
+                f"{(sum(gpt4o_distances) / len(self.rounds)):.1f}",
+                f"{min(gpt4o_distances):.1f}",
+                f"{max(gpt4o_distances):.1f}",
+            ],
+            [
+                "O1",
+                sum(r.o1_guess.score for r in self.rounds),
+                f"{sum(o1_distances):.1f}",
+                f"{(sum(o1_distances) / len(self.rounds)):.1f}",
+                f"{min(o1_distances):.1f}",
+                f"{max(o1_distances):.1f}",
+            ],
         ]
-        print("\n".join(lines))
+
+        print("\n=== Final Results ===\n")
+        print(tabulate(data, headers="firstrow", tablefmt="github"))
+        print("\n==================\n")
 
 
 def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

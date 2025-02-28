@@ -23,6 +23,7 @@ class IdentifiedLocation(TypedDict):
 
 
 def identify_objects(image_base64: str) -> list[InterestingObject]:
+    print("Starting object identification...")
     prompt = """You are an assistant designed to analyze screenshots from the game Geoguessr, which uses Google Maps imagery. Your task is to identify unique or interesting objects in these images that could help determine the location where the screenshot was taken.
 
 Please follow these steps to analyze the image:
@@ -102,10 +103,13 @@ Please proceed with your analysis and provide the final output."""
         },
         temperature=0.2,
     )
-    return json.loads(response.choices[0].message.content)["objects"]  # type: ignore
+    objects = json.loads(response.choices[0].message.content)["objects"]  # type: ignore
+    print(f"Object identification complete. Found {len(objects)} objects.")
+    return objects
 
 
 def identify_location_o1(images_base64: list[str]) -> IdentifiedLocation:
+    print("Starting location identification with o1 model...")
     if len(images_base64) < 3:
         raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
 
@@ -184,10 +188,15 @@ Determine the most likely location where the image was taken based on the inform
             },
         },
     )
-    return json.loads(response.choices[0].message.content)  # type: ignore
+    result = json.loads(response.choices[0].message.content)  # type: ignore
+    print(
+        f"o1 location identification complete. Found location: {result['country']}, {result['region']}"
+    )
+    return result
 
 
 def identify_location_gpt4o(images_base64: list[str]) -> IdentifiedLocation:
+    print("Starting location identification with GPT-4o model...")
     if len(images_base64) < 3:
         raise ValueError(f"At least 3 images are required, got: {len(images_base64)}")
 
@@ -271,7 +280,11 @@ Remember to base your analysis and conclusions solely on the information provide
         },
         temperature=0.30,
     )
-    return json.loads(response.choices[0].message.content)  # type: ignore
+    result = json.loads(response.choices[0].message.content)  # type: ignore
+    print(
+        f"GPT-4o location identification complete. Found location: {result['country']}, {result['region']}"
+    )
+    return result
 
 
 def deduplicate_interesting_objects(

@@ -27,6 +27,34 @@ def explore_location(page: Page) -> List[str]:
     return screenshots
 
 
+def check_score_prediction(
+    game_state: geoguessr.GameState,
+    round_number: int,
+    identified_location: vlm.IdentifiedLocation,
+) -> None:
+    answer_coords = game_state.rounds[round_number - 1]
+
+    predicted_score = geoguessr.predict_score(
+        game_state,
+        answer_coords.lat,
+        answer_coords.lng,
+        identified_location["latitude"],
+        identified_location["longitude"],
+    )
+
+    actual_score = game_state.player.guesses[-1].roundScoreInPoints
+    score_diff = abs(predicted_score - actual_score)
+
+    if score_diff > 1:
+        print(
+            f"Score prediction mismatch! Predicted: {predicted_score}, Actual: {actual_score}"
+        )
+    else:
+        print(
+            f"Score prediction matched! Predicted: {predicted_score}, Actual: {actual_score}"
+        )
+
+
 def main():
     with sync_playwright() as p:
         page = browser_ops.get_page(p)
@@ -43,6 +71,7 @@ def main():
 
             identified_location = vlm.identify_location_gpt4o(all_screenshots)
 
+            # Submit the guess and get actual score
             game_state = geoguessr.submit_guess(
                 page,
                 game_token,
@@ -51,6 +80,7 @@ def main():
             )
 
             output.print_round_score(game_state, round_number, identified_location)
+            check_score_prediction(game_state, round_number, identified_location)
             page.wait_for_timeout(1000)
 
         final_game_state = geoguessr.get_game_state(page, game_token)

@@ -7,12 +7,12 @@ from dotenv import load_dotenv
 from PIL import Image
 from playwright.sync_api import Page, sync_playwright
 
+load_dotenv()
+
 import browser_ops
 import geoguessr
 import scorer
 import vlm
-
-load_dotenv()
 
 
 def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:

@@ -97,7 +97,10 @@ def main():
 
             game_results.print_final_score_table()
             all_games.append(game_results)
+            # print the aggregate results after each game
+            scorer.print_aggregate_results(all_games)
 
+        # print the final aggregate results
         scorer.print_aggregate_results(all_games)
 
 

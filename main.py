@@ -54,12 +54,10 @@ def main():
         game_results = scorer.GameResults(
             game_token=game_token,
             rounds=[],
-            final_score_gpt4o=0,  # Changed from gpt4v
-            final_score_o1=0,  # Changed from claude
         )
 
         # each game has 5 rounds
-        for round_number in range(1, 3):
+        for round_number in range(1, 6):
             print(f"\nStarting round {round_number}")
             browser_ops.start_round(page)
 

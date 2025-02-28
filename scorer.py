@@ -157,36 +157,91 @@ class GameResults:
         gpt4o_distances = [r.gpt4o_guess.distance_km for r in self.rounds]
         o1_distances = [r.o1_guess.distance_km for r in self.rounds]
 
+        gpt4o_total = sum(r.gpt4o_guess.score for r in self.rounds)
+        o1_total = sum(r.o1_guess.score for r in self.rounds)
+        max_possible = len(self.rounds) * 5000
+
         data = [
             [
                 "Model",
-                "Total Score",
-                "Total Distance (km)",
+                f"Score (/{max_possible:,d})",
+                "Score %",
                 "Avg Distance (km)",
                 "Best Guess (km)",
                 "Worst Guess (km)",
             ],
             [
-                "GPT-4O",
-                sum(r.gpt4o_guess.score for r in self.rounds),
-                f"{sum(gpt4o_distances):.1f}",
-                f"{(sum(gpt4o_distances) / len(self.rounds)):.1f}",
-                f"{min(gpt4o_distances):.1f}",
-                f"{max(gpt4o_distances):.1f}",
+                "GPT-4o",
+                f"{gpt4o_total:,d}",
+                f"{(gpt4o_total/max_possible*100):.1f}%",
+                f"{(sum(gpt4o_distances) / len(self.rounds)):,.1f}",
+                f"{min(gpt4o_distances):,.1f}",
+                f"{max(gpt4o_distances):,.1f}",
             ],
             [
-                "O1",
-                sum(r.o1_guess.score for r in self.rounds),
-                f"{sum(o1_distances):.1f}",
-                f"{(sum(o1_distances) / len(self.rounds)):.1f}",
-                f"{min(o1_distances):.1f}",
-                f"{max(o1_distances):.1f}",
+                "o1",
+                f"{o1_total:,d}",
+                f"{(o1_total/max_possible*100):.1f}%",
+                f"{(sum(o1_distances) / len(self.rounds)):,.1f}",
+                f"{min(o1_distances):,.1f}",
+                f"{max(o1_distances):,.1f}",
             ],
         ]
 
         print("\n=== Final Results ===\n")
         print(tabulate(data, headers="firstrow", tablefmt="github"))
         print("\n==================\n")
+
+
+def print_aggregate_results(all_games: List["GameResults"]) -> None:
+    """Print aggregate statistics across all games."""
+    total_games = len(all_games)
+    total_rounds = sum(len(game.rounds) for game in all_games)
+
+    # Collect all rounds for statistics
+    gpt4o_scores = [r.gpt4o_guess.score for game in all_games for r in game.rounds]
+    o1_scores = [r.o1_guess.score for game in all_games for r in game.rounds]
+    gpt4o_distances = [
+        r.gpt4o_guess.distance_km for game in all_games for r in game.rounds
+    ]
+    o1_distances = [r.o1_guess.distance_km for game in all_games for r in game.rounds]
+
+    # Calculate totals and averages
+    gpt4o_total = sum(gpt4o_scores)
+    o1_total = sum(o1_scores)
+
+    data = [
+        [
+            "Model",
+            "Avg Score/Game (/25,000)",
+            "Avg Score/Game %",
+            "Avg Distance (km)",
+            "Best Guess (km)",
+            "Worst Guess (km)",
+        ],
+        [
+            "GPT-4o",
+            f"{gpt4o_total/total_games:,.1f}",
+            f"{(gpt4o_total/(total_rounds*5000)*100):.1f}%",
+            f"{(sum(gpt4o_distances)/total_rounds):,.1f}",
+            f"{min(gpt4o_distances):,.1f}",
+            f"{max(gpt4o_distances):,.1f}",
+        ],
+        [
+            "o1",
+            f"{o1_total/total_games:,.1f}",
+            f"{(o1_total/(total_rounds*5000)*100):.1f}%",
+            f"{(sum(o1_distances)/total_rounds):,.1f}",
+            f"{min(o1_distances):,.1f}",
+            f"{max(o1_distances):,.1f}",
+        ],
+    ]
+
+    print(
+        f"\n=== Aggregate Results ({total_games:,d} games, {total_rounds:,d} rounds) ===\n"
+    )
+    print(tabulate(data, headers="firstrow", tablefmt="github"))
+    print("\n==================\n")
 
 
 def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

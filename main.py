@@ -1,5 +1,6 @@
 import base64
 import os
+from dataclasses import dataclass
 from io import BytesIO
 from typing import List
 
@@ -11,9 +12,19 @@ load_dotenv()
 
 import browser_ops  # noqa: E402
 import geoguessr  # noqa: E402
+import output  # noqa: E402
 import scorer  # noqa: E402
 import vlm  # noqa: E402
-import output  # noqa: E402
+
+
+@dataclass
+class ExplorationResult:
+    regular_screenshots: list[str]
+    zoomed_screenshots: list[str]
+
+    @property
+    def all_screenshots(self) -> list[str]:
+        return self.regular_screenshots + self.zoomed_screenshots
 
 
 def save_base64_images(images: List[str], game_token: str, round_number: int) -> None:
@@ -30,20 +41,23 @@ def save_base64_images(images: List[str], game_token: str, round_number: int) ->
         img.save(img_path)
 
 
-def explore_location(page: Page) -> List[str]:
-    screenshots = []
+def explore_location(page: Page) -> ExplorationResult:
+    regular_screenshots = []
+    zoomed_screenshots = []
     for _ in range(5):
         browser_ops.pan_right(page)
         full_screenshot = browser_ops.take_screenshot(page)
-        screenshots.append(full_screenshot)
+        regular_screenshots.append(full_screenshot)
 
         interesting_objects = vlm.identify_objects(full_screenshot)
         interesting_objects = vlm.deduplicate_interesting_objects(interesting_objects)
         for obj in interesting_objects:
             zoomed_screenshot = browser_ops.zoom_in_screenshot(page, obj)
-            screenshots.append(zoomed_screenshot)
+            zoomed_screenshots.append(zoomed_screenshot)
 
-    return screenshots
+    return ExplorationResult(
+        regular_screenshots=regular_screenshots, zoomed_screenshots=zoomed_screenshots
+    )
 
 
 def _play_round(
@@ -53,12 +67,11 @@ def _play_round(
     print(f"\nStarting round {round_number}")
     browser_ops.start_round(page)
 
-    all_screenshots = explore_location(page)
-    save_base64_images(all_screenshots, game_token, round_number)
+    exploration_result = explore_location(page)
+    save_base64_images(exploration_result.all_screenshots, game_token, round_number)
 
-    # Get predictions from both models
-    gpt4o_location = vlm.identify_location_gpt4o(all_screenshots)
-    o1_location = vlm.identify_location_o1(all_screenshots)
+    gpt4o_location = vlm.identify_location_gpt4o(exploration_result.all_screenshots)
+    o1_location = vlm.identify_location_o1(exploration_result.all_screenshots)
 
     # Submit GPT-4O guess and get actual score
     game_state = geoguessr.submit_guess(

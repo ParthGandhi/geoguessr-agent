@@ -8,10 +8,10 @@ https://www.plonkit.net/beginners-guide#:~:text=Scoring,score%20drop%2Doff%20is%
 
 import math
 from dataclasses import dataclass
-from typing import List
+from typing import Any, Dict, List
 
 import geoguessr
-import vlm
+from vlm import IdentifiedLocation
 
 
 @dataclass
@@ -36,52 +36,59 @@ class GameResults:
     game_token: str
     rounds: List[RoundResult]
 
+    def _create_location_guess(
+        self,
+        location: IdentifiedLocation,
+        game_state: geoguessr.GameState,
+        actual_coords: geoguessr.Round,
+    ) -> LocationGuess:
+        """Create a LocationGuess with score and distance calculations."""
+        distance = _haversine_distance(
+            actual_coords.lat,
+            actual_coords.lng,
+            location["latitude"],
+            location["longitude"],
+        )
+
+        score = _calculate_score(
+            game_state,
+            actual_coords.lat,
+            actual_coords.lng,
+            location["latitude"],
+            location["longitude"],
+        )
+
+        return LocationGuess(
+            latitude=location["latitude"],
+            longitude=location["longitude"],
+            score=score,
+            distance_km=distance,
+            explanation=str(location.get("explanation", "")),
+        )
+
     def save_round_results(
         self,
         game_state: geoguessr.GameState,
         round_number: int,
-        gpt4o_location: vlm.IdentifiedLocation,
-        o1_location: vlm.IdentifiedLocation,
-        actual_score: int,
+        gpt4o_location: IdentifiedLocation,
+        o1_location: IdentifiedLocation,
+        actual_gpt4o_score: int,
     ) -> RoundResult:
-        """Save the results for a single round, including both models' guesses."""
+        """Save the results for a single round, including both models' guesses with and without zoom."""
         actual_coords = game_state.rounds[round_number - 1]
 
-        o1_score = _calculate_score(
-            game_state,
-            actual_coords.lat,
-            actual_coords.lng,
-            o1_location["latitude"],
-            o1_location["longitude"],
+        # Create location guesses
+        gpt4o_guess = self._create_location_guess(
+            gpt4o_location, game_state, actual_coords
         )
 
-        # Create location guess objects
-        gpt4o_guess = LocationGuess(
-            latitude=gpt4o_location["latitude"],
-            longitude=gpt4o_location["longitude"],
-            score=actual_score,
-            distance_km=_haversine_distance(
-                actual_coords.lat,
-                actual_coords.lng,
-                gpt4o_location["latitude"],
-                gpt4o_location["longitude"],
-            ),
-            explanation=gpt4o_location.get("explanation") or "",
-        )
+        # Validate GPT-4o score matches what we calculate
+        if abs(gpt4o_guess.score - actual_gpt4o_score) > 1:
+            raise ValueError(
+                f"GPT-4o score mismatch! Calculated: {gpt4o_guess.score}, Actual: {actual_gpt4o_score}"
+            )
 
-        o1_guess = LocationGuess(
-            latitude=o1_location["latitude"],
-            longitude=o1_location["longitude"],
-            score=o1_score,
-            distance_km=_haversine_distance(
-                actual_coords.lat,
-                actual_coords.lng,
-                o1_location["latitude"],
-                o1_location["longitude"],
-            ),
-            explanation=o1_location.get("explanation") or "",
-        )
-
+        o1_guess = self._create_location_guess(o1_location, game_state, actual_coords)
         round_result = RoundResult(
             round_number=round_number,
             gpt4o_guess=gpt4o_guess,
@@ -90,43 +97,7 @@ class GameResults:
         )
 
         self.rounds.append(round_result)
-
-        self._check_score_prediction(
-            game_state,
-            gpt4o_location["latitude"],
-            gpt4o_location["longitude"],
-            actual_score,
-        )
-
         return round_result
-
-    def _check_score_prediction(
-        self,
-        game_state: geoguessr.GameState,
-        predicted_lat: float,
-        predicted_lng: float,
-        actual_score: int,
-    ) -> None:
-        """
-        This checks that the score we calculate matches the actual score.
-        This validates that the scoring function is correct.
-        """
-        answer_coords = game_state.rounds[-1]
-
-        predicted_score = _calculate_score(
-            game_state,
-            answer_coords.lat,
-            answer_coords.lng,
-            predicted_lat,
-            predicted_lng,
-        )
-
-        score_diff = abs(predicted_score - actual_score)
-
-        if score_diff > 1:
-            raise ValueError(
-                f"Score prediction mismatch! Predicted: {predicted_score}, Actual: {actual_score}"
-            )
 
 
 def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
